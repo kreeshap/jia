@@ -40,22 +40,39 @@ def _guess_mime(path: Path) -> str:
     return mime or "application/octet-stream"
 
 
+_HEIF_REGISTERED = False
+
+
+def _ensure_heif() -> None:
+    global _HEIF_REGISTERED
+    if _HEIF_REGISTERED:
+        return
+
+    try:
+        import pillow_heif
+
+        pillow_heif.register_heif_opener()
+    except Exception as e:  # pragma: no cover
+        raise RuntimeError(
+            "This app needs 'pillow-heif' to read HEIC/HEIF photos. "
+            "Install it (and if needed, system libheif) or convert photos to JPG/PNG."
+        ) from e
+
+    _HEIF_REGISTERED = True
+
+
 def _read_as_web_image(path: Path) -> tuple[bytes, str]:
     suffix = path.suffix.lower()
     if suffix in {".heic", ".heif"}:
         try:
             from PIL import Image
+            from PIL import ImageOps
         except Exception as e:  # pragma: no cover
             raise RuntimeError("Pillow is required to convert HEIC/HEIF images.") from e
 
-        try:
-            import pillow_heif
+        _ensure_heif()
 
-            pillow_heif.register_heif_opener()
-        except Exception as e:  # pragma: no cover
-            raise RuntimeError("pillow-heif is required to convert HEIC/HEIF images.") from e
-
-        img = Image.open(path)
+        img = ImageOps.exif_transpose(Image.open(path))
         buf = BytesIO()
         img.convert("RGB").save(buf, format="JPEG", quality=92, optimize=True)
         return buf.getvalue(), "image/jpeg"
@@ -86,6 +103,7 @@ def load_default_photos(photos_dir: Path) -> dict[int, str]:
     ext_rank = {ext: i for i, ext in enumerate(preferred_ext_order)}
 
     photos: dict[int, str] = {}
+    failures: dict[int, list[str]] = {}
     for value in TILE_VALUES:
         matches = [p for p in photos_dir.glob(f"{value}.*") if p.is_file()]
         matches.sort(key=lambda p: ext_rank.get(p.suffix.lower(), 999))
@@ -97,8 +115,22 @@ def load_default_photos(photos_dir: Path) -> dict[int, str]:
             try:
                 photos[value] = _to_data_uri(candidate)
                 break
-            except Exception:
+            except Exception as e:
+                failures.setdefault(value, []).append(f"{candidate.name}: {e}")
                 continue
+
+    if failures:
+        heic_values = [
+            v
+            for v, errs in failures.items()
+            if any(".heic" in msg.lower() or ".heif" in msg.lower() for msg in errs)
+        ]
+        if heic_values:
+            st.warning(
+                "Some HEIC/HEIF tiles could not be decoded and were skipped. "
+                "Make sure `pillow-heif` is installed and the files aren't corrupted. "
+                f"Tile(s): {', '.join(map(str, sorted(heic_values)))}"
+            )
 
     return photos
 
