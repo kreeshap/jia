@@ -278,6 +278,7 @@ input[type="file"] {
 
   <div class="controls">
     <button class="btn btn-primary" onclick="newGame()">🔄 New game</button>
+    <button class="btn btn-secondary" id="sound-toggle" onclick="toggleSound()">🔇 Sound: Off</button>
     <button class="btn btn-secondary" id="keep-going" style="display: none;" onclick="keepGoing()">Keep going ▶</button>
   </div>
 
@@ -471,19 +472,51 @@ function applyMove(direction) {
   renderBoard();
 }
 
-function sayJia() {
+let soundEnabled = false;
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('sound-toggle');
+  if (btn) btn.textContent = soundEnabled ? '🔊 Sound: On' : '🔇 Sound: Off';
+
+  if (soundEnabled) {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      soundEnabled = false;
+      if (btn) btn.textContent = '🔇 Sound: Off';
+      try { showMessage('Sound is not supported in this browser/embed.', 'info'); } catch (e) {}
+      return;
+    }
+    // Prime speech on an explicit click (most reliable across browsers / iframes).
+    sayJia(true);
+  } else if ('speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+  }
+}
+
+function sayJia(force) {
   // Uses the browser's built-in text-to-speech so there's no audio file to host.
   if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
 
   try {
-    // Prevent piling up a queue if the user moves quickly.
+    if (!soundEnabled && !force) return;
+
+    // Ensure voices are initialized in some browsers.
+    try { window.speechSynthesis.getVoices(); } catch (e) {}
+
+    // Cancel existing speech, but speak on next tick (some browsers cancel the new utterance if same tick).
     window.speechSynthesis.cancel();
 
     const utter = new SpeechSynthesisUtterance('JIA!');
-    utter.rate = 1.1;
+    utter.rate = 1.08;
     utter.pitch = 1.0;
     utter.volume = 1.0;
-    window.speechSynthesis.speak(utter);
+
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utter);
+      } catch (e) {}
+    }, 0);
   } catch (e) {}
 }
 

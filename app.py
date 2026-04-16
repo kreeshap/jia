@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 st.set_page_config(page_title="2048 Face Edition", page_icon="🧩", layout="centered")
@@ -217,4 +218,4 @@ full_html = f"""<!doctype html>
 </html>
 """
 
-st.iframe(full_html, height=1000)
+components.html(full_html, height=1000, scrolling=True)
