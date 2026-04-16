@@ -62,19 +62,22 @@ def _ensure_heif() -> None:
 
 def _read_as_web_image(path: Path) -> tuple[bytes, str]:
     suffix = path.suffix.lower()
-    if suffix in {".heic", ".heif"}:
+    if suffix in {".heic", ".heif", ".jpg", ".jpeg", ".png", ".webp"}:
         try:
             from PIL import Image
             from PIL import ImageOps
         except Exception as e:  # pragma: no cover
-            raise RuntimeError("Pillow is required to convert HEIC/HEIF images.") from e
+            raise RuntimeError("Pillow is required to process images.") from e
 
-        _ensure_heif()
+        if suffix in {".heic", ".heif"}:
+            _ensure_heif()
 
-        img = ImageOps.exif_transpose(Image.open(path))
+        img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+        # Keep tile photos small so the embedded HTML stays fast and doesn't hit browser storage quotas.
+        img.thumbnail((320, 320))
         buf = BytesIO()
-        img.convert("RGB").save(buf, format="JPEG", quality=92, optimize=True)
-        return buf.getvalue(), "image/jpeg"
+        img.save(buf, format="WEBP", quality=80, method=6)
+        return buf.getvalue(), "image/webp"
 
     mime = _guess_mime(path)
     return path.read_bytes(), mime
@@ -135,21 +138,11 @@ def load_default_photos(photos_dir: Path) -> dict[int, str]:
 
 
 default_photos = load_default_photos(PHOTOS_DIR)
-seed_js = ""
 if default_photos:
     injected = json.dumps({str(k): v for k, v in default_photos.items()})
-    seed_js = f"""
-<script>
-// Pre-seed localStorage so the game loads tiles without requiring uploads.
-try {{
-  const existing = JSON.parse(localStorage.getItem('2048-photos') || "{{}}") || {{}};
-  const defaults = {injected};
-  // Preserve any user-uploaded photos; use defaults only for missing keys.
-  const merged = Object.assign({{}}, defaults, existing);
-  localStorage.setItem('2048-photos', JSON.stringify(merged));
-}} catch (e) {{}}
-</script>
-""".strip()
+    # The HTML declares `let photos = {};` and then merges in localStorage. We pre-seed
+    # defaults here and later merge saved uploads on top (without overwriting with empties).
+    raw_html = raw_html.replace("let photos = {};", f"let photos = {injected};")
 
 # Prevent uploading HEIC/HEIF (browsers typically can't render them in <img> reliably)
 raw_html = raw_html.replace("input.accept = 'image/*';", "input.accept = 'image/png,image/jpeg,image/webp';")
@@ -171,6 +164,16 @@ _merge_saved_photos_js = """
 
 raw_html = raw_html.replace("photos = JSON.parse(savedPhotos);", _merge_saved_photos_js)
 raw_html = raw_html.replace("Object.assign(photos, JSON.parse(savedPhotos));", _merge_saved_photos_js)
+
+base_values = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+have_all_base = all(v in default_photos for v in base_values)
+show_uploader = st.toggle("Show photo uploader", value=not have_all_base)
+if not show_uploader:
+    raw_html = raw_html.replace(
+        '<div class="photo-upload">',
+        '<div class="photo-upload" style="display:none !important;">',
+        1,
+    )
 
 css_vars = """
 <style>
@@ -209,7 +212,6 @@ full_html = f"""<!doctype html>
     {css_vars}
   </head>
   <body>
-    {seed_js}
     {raw_html}
   </body>
 </html>
