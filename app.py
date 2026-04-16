@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
+from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
@@ -39,9 +40,33 @@ def _guess_mime(path: Path) -> str:
     return mime or "application/octet-stream"
 
 
-def _to_data_uri(path: Path) -> str:
+def _read_as_web_image(path: Path) -> tuple[bytes, str]:
+    suffix = path.suffix.lower()
+    if suffix in {".heic", ".heif"}:
+        try:
+            from PIL import Image
+        except Exception as e:  # pragma: no cover
+            raise RuntimeError("Pillow is required to convert HEIC/HEIF images.") from e
+
+        try:
+            import pillow_heif
+
+            pillow_heif.register_heif_opener()
+        except Exception as e:  # pragma: no cover
+            raise RuntimeError("pillow-heif is required to convert HEIC/HEIF images.") from e
+
+        img = Image.open(path)
+        buf = BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=92, optimize=True)
+        return buf.getvalue(), "image/jpeg"
+
     mime = _guess_mime(path)
-    data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return path.read_bytes(), mime
+
+
+def _to_data_uri(path: Path) -> str:
+    data_bytes, mime = _read_as_web_image(path)
+    data = base64.b64encode(data_bytes).decode("ascii")
     return f"data:{mime};base64,{data}"
 
 
@@ -49,15 +74,31 @@ def load_default_photos(photos_dir: Path) -> dict[int, str]:
     if not photos_dir.exists():
         return {}
 
+    preferred_ext_order = [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".heic",
+        ".heif",
+    ]
+    ext_rank = {ext: i for i, ext in enumerate(preferred_ext_order)}
+
     photos: dict[int, str] = {}
     for value in TILE_VALUES:
-        matches = sorted(
-            [p for p in photos_dir.glob(f"{value}.*") if p.is_file()],
-            key=lambda p: p.suffix.lower(),
-        )
+        matches = [p for p in photos_dir.glob(f"{value}.*") if p.is_file()]
+        matches.sort(key=lambda p: ext_rank.get(p.suffix.lower(), 999))
         if not matches:
             continue
-        photos[value] = _to_data_uri(matches[0])
+
+        # Try preferred formats first; if HEIC conversion isn't available, fall back to jpg/png if present.
+        for candidate in matches:
+            try:
+                photos[value] = _to_data_uri(candidate)
+                break
+            except Exception:
+                continue
 
     return photos
 
@@ -68,6 +109,8 @@ if default_photos:
     # The HTML declares `let photos = {};` and then optionally overwrites from localStorage.
     # We pre-seed `photos` so the game starts with your face tiles immediately.
     raw_html = raw_html.replace("let photos = {};", f"let photos = {injected};")
+    # Merge any existing localStorage photos on top (user uploads) instead of replacing defaults.
+    raw_html = raw_html.replace("photos = JSON.parse(savedPhotos);", "Object.assign(photos, JSON.parse(savedPhotos));")
 
 css_vars = """
 <style>
