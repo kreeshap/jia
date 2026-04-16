@@ -109,8 +109,27 @@ if default_photos:
     # The HTML declares `let photos = {};` and then optionally overwrites from localStorage.
     # We pre-seed `photos` so the game starts with your face tiles immediately.
     raw_html = raw_html.replace("let photos = {};", f"let photos = {injected};")
-    # Merge any existing localStorage photos on top (user uploads) instead of replacing defaults.
-    raw_html = raw_html.replace("photos = JSON.parse(savedPhotos);", "Object.assign(photos, JSON.parse(savedPhotos));")
+
+# Prevent uploading HEIC/HEIF (browsers typically can't render them in <img> reliably)
+raw_html = raw_html.replace("input.accept = 'image/*';", "input.accept = 'image/png,image/jpeg,image/webp';")
+
+# When loading saved photos, ignore HEIC/HEIF data URIs (they render as broken images).
+_merge_saved_photos_js = """
+{
+  const parsed = JSON.parse(savedPhotos || "{}") || {};
+  for (const [k, v] of Object.entries(parsed)) {
+    if (typeof v === "string" && (v.startsWith("data:image/heic") || v.startsWith("data:image/heif"))) {
+      continue;
+    }
+    photos[k] = v;
+  }
+  // Rewrite storage without HEIC/HEIF so it doesn't keep breaking next load.
+  try { localStorage.setItem('2048-photos', JSON.stringify(photos)); } catch (e) {}
+}
+""".strip()
+
+raw_html = raw_html.replace("photos = JSON.parse(savedPhotos);", _merge_saved_photos_js)
+raw_html = raw_html.replace("Object.assign(photos, JSON.parse(savedPhotos));", _merge_saved_photos_js)
 
 css_vars = """
 <style>
