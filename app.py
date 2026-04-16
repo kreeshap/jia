@@ -7,7 +7,6 @@ from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 
 st.set_page_config(page_title="2048 Face Edition", page_icon="🧩", layout="centered")
@@ -136,11 +135,21 @@ def load_default_photos(photos_dir: Path) -> dict[int, str]:
 
 
 default_photos = load_default_photos(PHOTOS_DIR)
+seed_js = ""
 if default_photos:
     injected = json.dumps({str(k): v for k, v in default_photos.items()})
-    # The HTML declares `let photos = {};` and then optionally overwrites from localStorage.
-    # We pre-seed `photos` so the game starts with your face tiles immediately.
-    raw_html = raw_html.replace("let photos = {};", f"let photos = {injected};")
+    seed_js = f"""
+<script>
+// Pre-seed localStorage so the game loads tiles without requiring uploads.
+try {{
+  const existing = JSON.parse(localStorage.getItem('2048-photos') || "{{}}") || {{}};
+  const defaults = {injected};
+  // Preserve any user-uploaded photos; use defaults only for missing keys.
+  const merged = Object.assign({{}}, defaults, existing);
+  localStorage.setItem('2048-photos', JSON.stringify(merged));
+}} catch (e) {{}}
+</script>
+""".strip()
 
 # Prevent uploading HEIC/HEIF (browsers typically can't render them in <img> reliably)
 raw_html = raw_html.replace("input.accept = 'image/*';", "input.accept = 'image/png,image/jpeg,image/webp';")
@@ -200,9 +209,10 @@ full_html = f"""<!doctype html>
     {css_vars}
   </head>
   <body>
+    {seed_js}
     {raw_html}
   </body>
 </html>
 """
 
-components.html(full_html, height=1000, scrolling=True)
+st.iframe(full_html, height=1000)
