@@ -442,6 +442,8 @@ function applyMove(direction) {
   const { board: newBoard, score } = MOVES[direction](gameState.board);
   
   if (boardsEqual(oldBoard, newBoard)) return;
+
+  sayJia();
   
   gameState.board = newBoard;
   gameState.score += score;
@@ -467,6 +469,22 @@ function applyMove(direction) {
   
   document.getElementById('score').textContent = gameState.score;
   renderBoard();
+}
+
+function sayJia() {
+  // Uses the browser's built-in text-to-speech so there's no audio file to host.
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
+
+  try {
+    // Prevent piling up a queue if the user moves quickly.
+    window.speechSynthesis.cancel();
+
+    const utter = new SpeechSynthesisUtterance('JIA!');
+    utter.rate = 1.1;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {}
 }
 
 function canMove(board) {
