@@ -1,0 +1,699 @@
+<h2 class="sr-only">2048 Face Edition - Interactive tile-matching game with photo tiles and smooth animations</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.game-container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 1rem 0;
+  font-family: var(--font-sans);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.scores {
+  display: flex;
+  gap: 12px;
+}
+
+.score-box {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 8px 16px;
+  text-align: center;
+}
+
+.score-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+}
+
+.score-value {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--border-radius-md);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  border: none;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.btn-secondary {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+  border: none;
+}
+
+.btn-secondary:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.message {
+  padding: 12px;
+  border-radius: var(--border-radius-md);
+  margin-bottom: 1rem;
+  font-size: 14px;
+  text-align: center;
+}
+
+.message-success {
+  background: var(--color-background-success);
+  color: var(--color-text-success);
+}
+
+.message-danger {
+  background: var(--color-background-danger);
+  color: var(--color-text-danger);
+}
+
+.board-container {
+  position: relative;
+  background: #1a1a1a;
+  border-radius: var(--border-radius-lg);
+  padding: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.grid-container {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.grid-cell {
+  position: absolute;
+  background: #2a2a2a;
+  border-radius: 8px;
+  transition: all 0.1s;
+}
+
+.tile {
+  position: absolute;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+  font-weight: 800;
+  font-size: 32px;
+  color: white;
+}
+
+.tile.new {
+  animation: appear 0.2s;
+}
+
+.tile.merged {
+  animation: pop 0.2s;
+}
+
+@keyframes appear {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.tile-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.tile-value {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.instructions {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin-bottom: 1rem;
+}
+
+.photo-upload {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.upload-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 8px;
+}
+
+.upload-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.upload-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 0.5px solid var(--color-border-tertiary);
+}
+
+.upload-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.upload-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  border: 2px dashed var(--color-border-secondary);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--color-text-secondary);
+  transition: all 0.15s;
+}
+
+.upload-btn:hover {
+  border-color: var(--color-border-primary);
+  background: var(--color-background-secondary);
+}
+
+input[type="file"] {
+  display: none;
+}
+</style>
+
+<div class="game-container">
+  <div class="header">
+    <div class="title">2048 👤 Face Edition</div>
+    <div class="scores">
+      <div class="score-box">
+        <div class="score-label">Score</div>
+        <div class="score-value" id="score">0</div>
+      </div>
+      <div class="score-box">
+        <div class="score-label">Best</div>
+        <div class="score-value" id="best">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-primary" onclick="newGame()">🔄 New game</button>
+    <button class="btn btn-secondary" id="keep-going" style="display: none;" onclick="keepGoing()">Keep going ▶</button>
+  </div>
+
+  <div id="message-container"></div>
+
+  <div class="board-container">
+    <div class="grid-container" id="grid"></div>
+  </div>
+
+  <div class="instructions">
+    Use arrow keys or swipe to move tiles
+  </div>
+
+  <div class="photo-upload">
+    <div class="upload-title">Upload photos for tiles (optional)</div>
+    <div class="upload-grid" id="photo-grid"></div>
+  </div>
+</div>
+
+<script>
+const TILE_VALUES = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768];
+
+const TILE_COLORS = {
+  2: '#f5e642', 4: '#f5a623', 8: '#f06292', 16: '#e57373',
+  32: '#ba68c8', 64: '#7986cb', 128: '#4dd0e1', 256: '#81c784',
+  512: '#aed581', 1024: '#4fc3f7', 2048: '#ff8a65',
+  4096: '#a1887f', 8192: '#90a4ae', 16384: '#ce93d8', 32768: '#ffffff'
+};
+
+let gameState = {
+  board: [],
+  score: 0,
+  best: parseInt(localStorage.getItem('2048-best') || '0'),
+  won: false,
+  over: false,
+  keepGoing: false,
+  tileId: 0
+};
+
+let photos = {};
+
+// Load best score and photos from localStorage
+document.getElementById('best').textContent = gameState.best;
+const savedPhotos = localStorage.getItem('2048-photos');
+if (savedPhotos) {
+  photos = JSON.parse(savedPhotos);
+}
+
+function newBoard() {
+  const board = Array(4).fill(null).map(() => Array(4).fill(null).map(() => ({ value: 0, id: null })));
+  addRandomTile(board);
+  addRandomTile(board);
+  return board;
+}
+
+function emptyCells(board) {
+  const cells = [];
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (board[r][c].value === 0) cells.push([r, c]);
+    }
+  }
+  return cells;
+}
+
+function addRandomTile(board) {
+  const empties = emptyCells(board);
+  if (empties.length === 0) return board;
+  const [r, c] = empties[Math.floor(Math.random() * empties.length)];
+  board[r][c] = {
+    value: Math.random() < 0.1 ? 4 : 2,
+    id: gameState.tileId++,
+    isNew: true
+  };
+  return board;
+}
+
+function slideRowLeft(row) {
+  const tiles = row.filter(cell => cell.value !== 0);
+  let score = 0;
+  const merged = [];
+  let i = 0;
+  
+  while (i < tiles.length) {
+    if (i + 1 < tiles.length && tiles[i].value === tiles[i + 1].value) {
+      const val = tiles[i].value * 2;
+      merged.push({ value: val, id: tiles[i].id, isMerged: true });
+      score += val;
+      i += 2;
+    } else {
+      merged.push(tiles[i]);
+      i += 1;
+    }
+  }
+  
+  while (merged.length < 4) {
+    merged.push({ value: 0, id: null });
+  }
+  
+  return { row: merged, score };
+}
+
+function moveLeft(board) {
+  const newBoard = [];
+  let totalScore = 0;
+  
+  for (const row of board) {
+    const { row: newRow, score } = slideRowLeft(row);
+    newBoard.push(newRow);
+    totalScore += score;
+  }
+  
+  return { board: newBoard, score: totalScore };
+}
+
+function moveRight(board) {
+  const newBoard = [];
+  let totalScore = 0;
+  
+  for (const row of board) {
+    const reversed = [...row].reverse();
+    const { row: newRow, score } = slideRowLeft(reversed);
+    newBoard.push(newRow.reverse());
+    totalScore += score;
+  }
+  
+  return { board: newBoard, score: totalScore };
+}
+
+function transpose(board) {
+  return board[0].map((_, i) => board.map(row => row[i]));
+}
+
+function moveUp(board) {
+  const transposed = transpose(board);
+  const { board: moved, score } = moveLeft(transposed);
+  return { board: transpose(moved), score };
+}
+
+function moveDown(board) {
+  const transposed = transpose(board);
+  const { board: moved, score } = moveRight(transposed);
+  return { board: transpose(moved), score };
+}
+
+const MOVES = { left: moveLeft, right: moveRight, up: moveUp, down: moveDown };
+
+function boardsEqual(b1, b2) {
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (b1[r][c].value !== b2[r][c].value) return false;
+    }
+  }
+  return true;
+}
+
+function applyMove(direction) {
+  if (gameState.over) return;
+  if (gameState.won && !gameState.keepGoing) return;
+  
+  const oldBoard = JSON.parse(JSON.stringify(gameState.board));
+  const { board: newBoard, score } = MOVES[direction](gameState.board);
+  
+  if (boardsEqual(oldBoard, newBoard)) return;
+  
+  gameState.board = newBoard;
+  gameState.score += score;
+  
+  if (gameState.score > gameState.best) {
+    gameState.best = gameState.score;
+    localStorage.setItem('2048-best', gameState.best);
+    document.getElementById('best').textContent = gameState.best;
+  }
+  
+  addRandomTile(gameState.board);
+  
+  if (!gameState.won && isWon(gameState.board)) {
+    gameState.won = true;
+    showMessage('🎉 You reached 2048! Keep going or start a new game.', 'success');
+    document.getElementById('keep-going').style.display = 'block';
+  }
+  
+  if (isGameOver(gameState.board)) {
+    gameState.over = true;
+    showMessage(`Game over! Max tile: ${getMaxTile(gameState.board)} — Start a new game.`, 'danger');
+  }
+  
+  document.getElementById('score').textContent = gameState.score;
+  renderBoard();
+}
+
+function canMove(board) {
+  if (emptyCells(board).length > 0) return true;
+  
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const val = board[r][c].value;
+      if (c < 3 && board[r][c + 1].value === val) return true;
+      if (r < 3 && board[r + 1][c].value === val) return true;
+    }
+  }
+  return false;
+}
+
+function isWon(board) {
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (board[r][c].value >= 2048) return true;
+    }
+  }
+  return false;
+}
+
+function isGameOver(board) {
+  return !canMove(board);
+}
+
+function getMaxTile(board) {
+  let max = 0;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      max = Math.max(max, board[r][c].value);
+    }
+  }
+  return max;
+}
+
+function showMessage(text, type) {
+  const container = document.getElementById('message-container');
+  container.innerHTML = `<div class="message message-${type}">${text}</div>`;
+}
+
+function clearMessage() {
+  document.getElementById('message-container').innerHTML = '';
+}
+
+function renderBoard() {
+  const grid = document.getElementById('grid');
+  const size = grid.offsetWidth;
+  const cellSize = (size - 60) / 4;
+  const gap = 12;
+  
+  // Clear existing tiles
+  grid.innerHTML = '';
+  
+  // Render grid cells
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.style.width = cellSize + 'px';
+      cell.style.height = cellSize + 'px';
+      cell.style.left = (c * (cellSize + gap) + gap) + 'px';
+      cell.style.top = (r * (cellSize + gap) + gap) + 'px';
+      grid.appendChild(cell);
+    }
+  }
+  
+  // Render tiles
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const cell = gameState.board[r][c];
+      if (cell.value === 0) continue;
+      
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      if (cell.isNew) tile.classList.add('new');
+      if (cell.isMerged) tile.classList.add('merged');
+      
+      tile.style.width = cellSize + 'px';
+      tile.style.height = cellSize + 'px';
+      tile.style.left = (c * (cellSize + gap) + gap) + 'px';
+      tile.style.top = (r * (cellSize + gap) + gap) + 'px';
+      
+      const photo = photos[cell.value];
+      if (photo) {
+        const img = document.createElement('img');
+        img.src = photo;
+        img.className = 'tile-photo';
+        tile.appendChild(img);
+        
+        const label = document.createElement('div');
+        label.className = 'tile-value';
+        label.textContent = cell.value;
+        tile.appendChild(label);
+      } else {
+        tile.style.background = TILE_COLORS[cell.value] || '#555';
+        tile.textContent = cell.value;
+      }
+      
+      grid.appendChild(tile);
+      
+      // Clear animation flags after render
+      setTimeout(() => {
+        cell.isNew = false;
+        cell.isMerged = false;
+      }, 200);
+    }
+  }
+}
+
+function newGame() {
+  gameState.board = newBoard();
+  gameState.score = 0;
+  gameState.won = false;
+  gameState.over = false;
+  gameState.keepGoing = false;
+  document.getElementById('score').textContent = 0;
+  document.getElementById('keep-going').style.display = 'none';
+  clearMessage();
+  renderBoard();
+}
+
+function keepGoing() {
+  gameState.keepGoing = true;
+  document.getElementById('keep-going').style.display = 'none';
+  clearMessage();
+}
+
+// Keyboard controls
+document.addEventListener('keydown', (e) => {
+  const key = e.key;
+  if (key === 'ArrowUp') {
+    e.preventDefault();
+    applyMove('up');
+  } else if (key === 'ArrowDown') {
+    e.preventDefault();
+    applyMove('down');
+  } else if (key === 'ArrowLeft') {
+    e.preventDefault();
+    applyMove('left');
+  } else if (key === 'ArrowRight') {
+    e.preventDefault();
+    applyMove('right');
+  }
+});
+
+// Touch controls
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchend', (e) => {
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+  
+  const dx = touchEndX - touchStartX;
+  const dy = touchEndY - touchStartY;
+  
+  if (Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
+  
+  if (Math.abs(dx) > Math.abs(dy)) {
+    applyMove(dx > 0 ? 'right' : 'left');
+  } else {
+    applyMove(dy > 0 ? 'down' : 'up');
+  }
+});
+
+// Photo upload functionality
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  grid.innerHTML = '';
+  
+  TILE_VALUES.slice(0, 11).forEach(val => {
+    const item = document.createElement('div');
+    item.className = 'upload-item';
+    
+    if (photos[val]) {
+      const img = document.createElement('img');
+      img.src = photos[val];
+      img.className = 'upload-preview';
+      item.appendChild(img);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'upload-btn';
+      btn.textContent = '+';
+      btn.onclick = () => triggerUpload(val);
+      item.appendChild(btn);
+    }
+    
+    const label = document.createElement('div');
+    label.className = 'upload-label';
+    label.textContent = val;
+    item.appendChild(label);
+    
+    grid.appendChild(item);
+  });
+}
+
+function triggerUpload(value) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => handlePhotoUpload(e, value);
+  input.click();
+}
+
+function handlePhotoUpload(e, value) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    photos[value] = event.target.result;
+    localStorage.setItem('2048-photos', JSON.stringify(photos));
+    renderPhotoGrid();
+    renderBoard();
+  };
+  reader.readAsDataURL(file);
+}
+
+// Initialize
+newGame();
+renderPhotoGrid();
+</script>
